@@ -3,6 +3,13 @@ from datetime import datetime
 import calendar
 from dateutil.relativedelta import relativedelta
 
+# Lista de meses en español
+meses_espanol = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+]
+
+
 def generar_enlace():
     # Obtener la fecha actual
     today = datetime.today()
@@ -11,10 +18,11 @@ def generar_enlace():
     fecha_calculada = today - relativedelta(months=2)
 
     # Obtener el mes y año
-    mes = calendar.month_name[fecha_calculada.month]
+    numero_mes = f"{fecha_calculada.month:02d}"  # Mes en formato 2 dígitos
+    mes = meses_espanol[fecha_calculada.month - 1]  # Mes en español
     anio = fecha_calculada.year
 
     # Crear el enlace de descarga
-    enlace = f"https://www.dian.gov.co/dian/cifras/Basesestadisticasexportaciones/03_Exportaciones_{anio}_{mes}.zip"
+    enlace = f"https://www.dian.gov.co/dian/cifras/Basesestadisticasexportaciones/{numero_mes}_Exportaciones_{anio}_{mes}.zip"
     print(f"Enlace generado: {enlace}")
     return enlace
