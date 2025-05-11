@@ -1,2 +1,5 @@
 project:
     name: automatizacion
+
+volumes:
+    - C:/Users/Aleja/.aws:/root/.aws:ro

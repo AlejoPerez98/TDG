@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime
 from include.tasks.link.generate_download_link import generar_enlace
 from include.tasks.link.download_file import descargar_archivo
-from include.tasks.extract.extract_zip_files import extract_zip_files
+from include.tasks.extract.extract_zip_files import extract_zip_to_s3
 from include.tasks.extract.clean_zip_files import clean_zip_files
 from include.tasks.extract.rename_files import rename_files
 from include.tasks.transform.process_excel_data import process_excel_data
@@ -24,13 +24,43 @@ def obtener_enlace(**context):
     return enlace  # Esto se almacenará automáticamente en XCom bajo la clave 'return_value'
 
 def descargar(**context):
-    # Recuperar el valor desde XCom usando la clave predeterminada 'return_value'
+    # Recuperar la URL desde XCom
     url = context['ti'].xcom_pull(task_ids='generate_download_link')
     print(f"URL recuperada desde XCom: {url}")  # Para depuración
     if not url:
         raise ValueError("No se pudo obtener el enlace para descargar el archivo.")
-    carpeta_destino = "/tmp/ZIP"
-    descargar_archivo(url, carpeta_destino)
+    
+    # Parámetros de destino
+    bucket_name = "airflowdian"
+    s3_key_prefix = "archivos-descargados"
+
+    # Llamar a la función para descargar y subir directamente a S3
+    nombre_archivo = descargar_archivo(url, bucket_name, s3_key_prefix)
+
+    # Construir la clave del archivo en S3
+    s3_key = f"{s3_key_prefix}/{nombre_archivo}"
+
+    # Devolver la clave del archivo para que esté disponible en XCom
+    return s3_key
+    
+def descomprimir_y_subir_a_s3(**context):
+    # Parámetros del bucket y prefijo de salida
+    bucket_name = "airflowdian"
+    s3_key = context['ti'].xcom_pull(task_ids='download_file')  # Recuperar la clave del archivo ZIP desde XCom
+    s3_output_prefix = "archivos-descomprimidos"
+
+    if not s3_key:
+        raise ValueError("No se pudo obtener la clave del archivo desde XCom.")
+
+    # Llamar a la función para descomprimir y subir a S3
+    extract_zip_to_s3(bucket_name, s3_key, s3_output_prefix)
+    
+    # Parámetros de destino
+    bucket_name = "airflowdian"
+    s3_key_prefix = "archivos-descargados"
+
+    # Llamar a la función para descargar y subir directamente a S3
+    descargar_archivo(url, bucket_name, s3_key_prefix)
     
 with DAG(
     'procesamiento_dag',
@@ -53,9 +83,8 @@ with DAG(
     )
 
     extract_task = PythonOperator(
-        task_id='extract_zip_files',
-        python_callable=extract_zip_files,
-        dag=dag,
+        task_id='extract_and_upload_to_s3',
+        python_callable=descomprimir_y_subir_a_s3,
     )
 
     clean_task = PythonOperator(
